@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 /* ================= FIREBASE ADMIN ================= */
+
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -20,80 +21,101 @@ if (!admin.apps.length) {
   });
 }
 
-/* ================= HEALTH CHECK ================= */
-app.get("/healthz", (req, res) => {
-  res.status(200).send("OK");
-});
+/* ================= CONSTANTS ================= */
 
-/* ================= ROOT ================= */
+const PORT = process.env.PORT || 3000;
+
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const DISCORD_REDIRECT_URI =
+  "https://gloves-backend.onrender.com/auth/discord/callback";
+
+/* ================= ROUTES ================= */
+
+// health check
 app.get("/", (req, res) => {
   res.send("Gloves backend is running 🚀");
 });
 
-/* ================= DISCORD LOGIN ================= */
+/* ---------- DISCORD LOGIN ---------- */
 app.get("/auth/discord", (req, res) => {
-  const redirectUri = encodeURIComponent(process.env.DISCORD_REDIRECT_URI);
+  const discordAuthUrl =
+    `https://discord.com/api/oauth2/authorize` +
+    `?client_id=${DISCORD_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}` +
+    `&response_type=code` +
+    `&scope=identify email`;
 
-  const url =
-    "https://discord.com/oauth2/authorize" +
-    `?client_id=${process.env.DISCORD_CLIENT_ID}` +
-    `&redirect_uri=${redirectUri}` +
-    "&response_type=code" +
-    "&scope=identify email";
-
-  res.redirect(url);
+  res.redirect(discordAuthUrl);
 });
 
-/* ================= DISCORD CALLBACK ================= */
+/* ---------- DISCORD CALLBACK ---------- */
 app.get("/auth/discord/callback", async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.status(400).send("No code");
+
+  if (!code) {
+    return res.status(400).send("No code");
+  }
 
   try {
-    // exchange code -> token
-    const tokenRes = await axios.post(
+    /* 1️⃣ TOKEN */
+    const tokenResponse = await axios.post(
       "https://discord.com/api/oauth2/token",
       new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID,
-        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        client_id: DISCORD_CLIENT_ID,
+        client_secret: DISCORD_CLIENT_SECRET,
         grant_type: "authorization_code",
         code,
-        redirect_uri: process.env.DISCORD_REDIRECT_URI,
+        redirect_uri: DISCORD_REDIRECT_URI,
       }),
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      }
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
-    const accessToken = tokenRes.data.access_token;
+    const accessToken = tokenResponse.data.access_token;
 
-    // get user info
-    const userRes = await axios.get("https://discord.com/api/users/@me", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    /* 2️⃣ USER INFO */
+    const userResponse = await axios.get(
+      "https://discord.com/api/users/@me",
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
 
-    const discordUser = userRes.data;
+    const discordUser = userResponse.data;
 
-    // create firebase custom token
     const uid = `discord:${discordUser.id}`;
-    const firebaseToken = await admin.auth().createCustomToken(uid, {
-      provider: "discord",
-      email: discordUser.email,
-      username: discordUser.username,
-    });
 
+    /* 3️⃣ FIREBASE USER */
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUser(uid);
+    } catch {
+      userRecord = await admin.auth().createUser({
+        uid,
+        displayName: discordUser.username,
+        photoURL: discordUser.avatar
+          ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+          : undefined,
+      });
+    }
+
+    /* 4️⃣ CUSTOM TOKEN */
+    const customToken = await admin.auth().createCustomToken(uid);
+
+    /* 5️⃣ RESULT */
     res.json({
-      firebaseToken,
-      discordUser,
+      provider: "discord",
+      uid: userRecord.uid,
+      username: discordUser.username,
+      email: discordUser.email,
+      token: customToken,
     });
   } catch (err) {
-    console.error(err.response?.data || err.message);
+    console.error("Discord auth error:", err.response?.data || err.message);
     res.status(500).json({ error: "Discord auth failed" });
   }
 });
 
-/* ================= START SERVER ================= */
-const PORT = process.env.PORT || 3000;
+/* ================= START ================= */
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
