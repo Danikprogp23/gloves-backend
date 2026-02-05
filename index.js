@@ -1,168 +1,99 @@
-const functions = require('firebase-functions')
-const express = require('express')
-const axios = require('axios')
-const cors = require('cors')
-const crypto = require('crypto')
-const admin = require('firebase-admin')
+require("dotenv").config();
 
-admin.initializeApp()
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
+const admin = require("firebase-admin");
 
-const app = express()
-app.use(cors())
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// ===== CONFIG =====
-const config = functions.config()
-
-const DISCORD_CLIENT_ID = config.discord.client_id
-const DISCORD_CLIENT_SECRET = config.discord.client_secret
-const DISCORD_REDIRECT_URI = config.discord.redirect_uri
-
-const X_CLIENT_ID = config.x.client_id
-const X_CLIENT_SECRET = config.x.client_secret
-const X_REDIRECT_URI = config.x.redirect_uri
-
-// ===== PKCE =====
-const pkceStore = new Map()
-
-function base64URLEncode(buffer) {
-  return buffer
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '')
+/* ================= FIREBASE ADMIN ================= */
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
 }
 
-function sha256(buffer) {
-  return crypto.createHash('sha256').update(buffer).digest()
-}
+/* ================= HEALTH CHECK ================= */
+app.get("/healthz", (req, res) => {
+  res.status(200).send("OK");
+});
 
-/* ===================== DISCORD ===================== */
+/* ================= ROOT ================= */
+app.get("/", (req, res) => {
+  res.send("Gloves backend is running 🚀");
+});
 
-app.get('/auth/discord', (req, res) => {
-  const url =
-    'https://discord.com/oauth2/authorize?' +
-    new URLSearchParams({
-      client_id: DISCORD_CLIENT_ID,
-      response_type: 'code',
-      scope: 'identify email',
-      redirect_uri: DISCORD_REDIRECT_URI
-    })
-
-  res.redirect(url)
-})
-
-app.get('/auth/discord/callback', async (req, res) => {
-  const { code } = req.query
-  if (!code) return res.status(400).send('No code')
-
-  try {
-    const tokenRes = await axios.post(
-      'https://discord.com/api/oauth2/token',
-      new URLSearchParams({
-        client_id: DISCORD_CLIENT_ID,
-        client_secret: DISCORD_CLIENT_SECRET,
-        grant_type: 'authorization_code',
-        code,
-        redirect_uri: DISCORD_REDIRECT_URI
-      }),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    )
-
-    const accessToken = tokenRes.data.access_token
-
-    const userRes = await axios.get(
-      'https://discord.com/api/users/@me',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    )
-
-    const uid = `discord_${userRes.data.id}`
-
-    const firebaseToken = await admin.auth().createCustomToken(uid, {
-      provider: 'discord',
-      username: userRes.data.username
-    })
-
-    res.redirect(
-      `glovesapp://auth?firebaseToken=${firebaseToken}&provider=discord`
-    )
-  } catch (e) {
-    console.error(e)
-    res.status(500).send('Discord OAuth error')
-  }
-})
-
-/* ===================== X (Twitter) ===================== */
-
-app.get('/auth/x', (req, res) => {
-  const codeVerifier = base64URLEncode(crypto.randomBytes(32))
-  const codeChallenge = base64URLEncode(sha256(codeVerifier))
-  const state = crypto.randomUUID()
-
-  pkceStore.set(state, codeVerifier)
+/* ================= DISCORD LOGIN ================= */
+app.get("/auth/discord", (req, res) => {
+  const redirectUri = encodeURIComponent(process.env.DISCORD_REDIRECT_URI);
 
   const url =
-    'https://twitter.com/i/oauth2/authorize?' +
-    new URLSearchParams({
-      response_type: 'code',
-      client_id: X_CLIENT_ID,
-      redirect_uri: X_REDIRECT_URI,
-      scope: 'tweet.read users.read',
-      state,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256'
-    })
+    "https://discord.com/oauth2/authorize" +
+    `?client_id=${process.env.DISCORD_CLIENT_ID}` +
+    `&redirect_uri=${redirectUri}` +
+    "&response_type=code" +
+    "&scope=identify email";
 
-  res.redirect(url)
-})
+  res.redirect(url);
+});
 
-app.get('/auth/x/callback', async (req, res) => {
-  const { code, state } = req.query
-  const codeVerifier = pkceStore.get(state)
-  pkceStore.delete(state)
-
-  if (!codeVerifier) return res.status(400).send('Invalid PKCE')
+/* ================= DISCORD CALLBACK ================= */
+app.get("/auth/discord/callback", async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send("No code");
 
   try {
+    // exchange code -> token
     const tokenRes = await axios.post(
-      'https://api.twitter.com/2/oauth2/token',
+      "https://discord.com/api/oauth2/token",
       new URLSearchParams({
-        grant_type: 'authorization_code',
+        client_id: process.env.DISCORD_CLIENT_ID,
+        client_secret: process.env.DISCORD_CLIENT_SECRET,
+        grant_type: "authorization_code",
         code,
-        redirect_uri: X_REDIRECT_URI,
-        client_id: X_CLIENT_ID,
-        code_verifier: codeVerifier
+        redirect_uri: process.env.DISCORD_REDIRECT_URI,
       }),
       {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        auth: {
-          username: X_CLIENT_ID,
-          password: X_CLIENT_SECRET
-        }
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }
-    )
+    );
 
-    const accessToken = tokenRes.data.access_token
+    const accessToken = tokenRes.data.access_token;
 
-    const userRes = await axios.get(
-      'https://api.twitter.com/2/users/me',
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    )
+    // get user info
+    const userRes = await axios.get("https://discord.com/api/users/@me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-    const uid = `x_${userRes.data.data.id}`
+    const discordUser = userRes.data;
 
+    // create firebase custom token
+    const uid = `discord:${discordUser.id}`;
     const firebaseToken = await admin.auth().createCustomToken(uid, {
-      provider: 'x',
-      username: userRes.data.data.username
-    })
+      provider: "discord",
+      email: discordUser.email,
+      username: discordUser.username,
+    });
 
-    res.redirect(
-      `glovesapp://auth?firebaseToken=${firebaseToken}&provider=x`
-    )
-  } catch (e) {
-    console.error(e)
-    res.status(500).send('X OAuth error')
+    res.json({
+      firebaseToken,
+      discordUser,
+    });
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).json({ error: "Discord auth failed" });
   }
-})
+});
 
-// ===== EXPORT =====
-exports.oauth = functions.https.onRequest(app)
+/* ================= START SERVER ================= */
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
