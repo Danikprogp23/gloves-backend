@@ -50,7 +50,7 @@ const X_CLIENT_ID = process.env.X_CLIENT_ID;
 const X_REDIRECT_URI = process.env.X_REDIRECT_URI;
 
 // Android deep link
-const ANDROID_REDIRECT = "kz.gloves.glovesapp://oauth";
+const ANDROID_REDIRECT = "glovesapp://auth";
 
 // временно (для PKCE)
 let X_CODE_VERIFIER = null;
