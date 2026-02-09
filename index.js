@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const app = express();
 app.use(cors());
 app.use(express.json());
-
+const cloudinary = require("cloudinary").v2;
 /* ================= FIREBASE ADMIN ================= */
 
 if (!admin.apps.length) {
@@ -21,7 +21,11 @@ if (!admin.apps.length) {
     }),
   });
 }
-
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 /* ================= UTILS ================= */
 
 function base64URLEncode(buffer) {
@@ -60,6 +64,25 @@ let X_CODE_VERIFIER = null;
 // Health
 app.get("/", (_, res) => {
   res.send("Gloves backend is running 🚀");
+});
+app.get("/cloudinary/sign", (req, res) => {
+  const timestamp = Math.round(Date.now() / 1000);
+
+  const signature = cloudinary.utils.api_sign_request(
+    {
+      timestamp,
+      folder: "avatars",
+    },
+    process.env.CLOUDINARY_API_SECRET
+  );
+
+  res.json({
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    timestamp,
+    signature,
+    folder: "avatars",
+  });
 });
 
 /* ======================================================
