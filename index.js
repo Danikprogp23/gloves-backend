@@ -5,7 +5,9 @@ const cors = require("cors");
 const axios = require("axios");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
-
+const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -13,13 +15,15 @@ const cloudinary = require("cloudinary").v2;
 /* ================= FIREBASE ADMIN ================= */
 
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-    }),
-  });
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+  }),
+  databaseURL: process.env.FIREBASE_DATABASE_URL,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET
+});
 }
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -27,7 +31,46 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 /* ================= UTILS ================= */
+function retrainModel() {
+  return new Promise((resolve, reject) => {
+    const process = spawn("python", ["train.py"]);
 
+    process.stdout.on("data", (data) => {
+      console.log(data.toString());
+    });
+
+    process.stderr.on("data", (data) => {
+      console.error(data.toString());
+    });
+
+    process.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error("Training failed"));
+      }
+    });
+  });
+}
+app.get("/test-python", (req, res) => {
+
+  const p = spawn("python", ["--version"]);
+
+  let output = "";
+
+  p.stdout.on("data", d => {
+    output += d.toString();
+  });
+
+  p.stderr.on("data", d => {
+    output += d.toString();
+  });
+
+  p.on("close", () => {
+    res.send(output);
+  });
+
+});
 function base64URLEncode(buffer) {
   return buffer
     .toString("base64")
@@ -60,7 +103,83 @@ const ANDROID_REDIRECT = "glovesapp://auth";
 let X_CODE_VERIFIER = null;
 
 /* ================= ROUTES ================= */
+async function buildDataset() {
 
+  const snapshot =
+    await admin.database()
+      .ref("samples")
+      .once("value");
+
+  const samples = snapshot.val();
+
+  if (!samples) {
+    throw new Error("No samples found");
+  }
+
+  const csvRows = [];
+
+  const header = [];
+
+  for (let i = 0; i < 40; i++) {
+    header.push(`f${i}`);
+  }
+
+  header.push("gesture");
+
+  csvRows.push(header.join(","));
+
+  Object.values(samples).forEach(sample => {
+
+    const row = [
+      ...sample.features,
+      sample.gesture
+    ];
+
+    csvRows.push(row.join(","));
+
+  });
+
+  fs.writeFileSync(
+    "dataset.csv",
+    csvRows.join("\n")
+  );
+}
+async function uploadModel() {
+
+  const bucket = admin.storage().bucket();
+
+  await bucket.upload(
+    "smartglove.tflite",
+    {
+      destination:
+        "models/smartglove.tflite"
+    }
+  );
+
+  await bucket.upload(
+    "labels.txt",
+    {
+      destination:
+        "models/labels.txt"
+    }
+  );
+}
+async function increaseVersion() {
+
+  const ref =
+    admin.database()
+      .ref("modelVersion");
+
+  const snap =
+    await ref.once("value");
+
+  const version =
+    snap.val() || 1;
+
+  await ref.set(
+    version + 1
+  );
+}
 // Health
 app.get("/", (_, res) => {
   res.send("Gloves backend is running 🚀");
@@ -227,7 +346,50 @@ app.get("/auth/discord/callback", async (req, res) => {
 });
 
 /* ================= START ================= */
+app.post("/retrain", async (req, res) => {
 
+  try {
+
+    console.log(
+      "Building dataset..."
+    );
+
+    await buildDataset();
+
+    console.log(
+      "Training model..."
+    );
+
+    await retrainModel();
+
+    console.log(
+      "Uploading model..."
+    );
+
+    await uploadModel();
+
+    console.log(
+      "Updating version..."
+    );
+
+    await increaseVersion();
+
+    res.json({
+      success: true
+    });
+
+  } catch (e) {
+
+    console.error(e);
+
+    res.status(500).json({
+      success: false,
+      error: e.message
+    });
+
+  }
+
+});
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
