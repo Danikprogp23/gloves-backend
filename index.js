@@ -54,20 +54,20 @@ function retrainModel() {
 }
 app.get("/test-python", (req, res) => {
 
-  const p = spawn("python", ["--version"]);
+  const process = spawn("python", ["train.py"]);
 
   let output = "";
 
-  p.stdout.on("data", d => {
-    output += d.toString();
+  process.stdout.on("data", data => {
+    output += data.toString();
   });
 
-  p.stderr.on("data", d => {
-    output += d.toString();
+  process.stderr.on("data", data => {
+    output += data.toString();
   });
 
-  p.on("close", () => {
-    res.send(output);
+  process.on("close", code => {
+    res.send(`CODE=${code}\n\n${output}`);
   });
 
 });
