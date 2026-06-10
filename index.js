@@ -8,6 +8,7 @@ const crypto = require("crypto");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -44,14 +45,191 @@ function retrainModel() {
     });
 
     process.on("close", (code) => {
+
+  console.log(
+    "TRAIN EXIT CODE:",
+    code
+  );
+
+  if (code === 0) {
+
+    resolve();
+
+  } else {
+
+    reject(
+      new Error(
+        `Training failed: ${code}`
+      )
+    );
+  }
+});
+  });
+}
+function generateVoice(
+  text,
+  voice,
+  output
+) {
+
+  return new Promise((resolve, reject) => {
+
+    const process = spawn(
+      "python",
+      [
+        "generate_voice.py",
+        text,
+        voice,
+        output
+      ]
+    );
+
+    process.on("close", code => {
+
       if (code === 0) {
         resolve();
       } else {
-        reject(new Error("Training failed"));
+        reject(
+          new Error("Voice generation failed")
+        );
       }
+
     });
+
   });
+
 }
+async function uploadVoice(
+  fileName
+) {
+
+  const bucket =
+    admin.storage().bucket();
+
+  await bucket.upload(
+    fileName,
+    {
+      destination:
+        `voices/${fileName}`
+    }
+  );
+
+  const file =
+    bucket.file(
+      `voices/${fileName}`
+    );
+
+  const [url] =
+    await file.getSignedUrl({
+      action: "read",
+      expires: "01-01-2100"
+    });
+
+  return url;
+}
+async function createGestureVoices(
+  gesture,
+  kk,
+  ru,
+  en
+) {
+
+  const kkFile =
+    `${gesture}_kk.mp3`;
+
+  const ruFile =
+    `${gesture}_ru.mp3`;
+
+  const enFile =
+    `${gesture}_en.mp3`;
+
+  await generateVoice(
+    kk,
+    "kk-KZ-AigulNeural",
+    kkFile
+  );
+
+  await generateVoice(
+    ru,
+    "ru-RU-SvetlanaNeural",
+    ruFile
+  );
+
+  await generateVoice(
+    en,
+    "en-US-JennyNeural",
+    enFile
+  );
+
+  const kkUrl =
+    await uploadVoice(
+      kkFile
+    );
+
+  const ruUrl =
+    await uploadVoice(
+      ruFile
+    );
+
+  const enUrl =
+    await uploadVoice(
+      enFile
+    );
+
+  await admin.database()
+    .ref(`voices/${gesture}`)
+    .set({
+      kk: kkUrl,
+      ru: ruUrl,
+      en: enUrl
+    });
+
+}
+app.post("/createGesture", async (req, res) => {
+
+  try {
+
+    const {
+      gesture,
+      kk,
+      ru,
+      en
+    } = req.body;
+
+    await admin.database()
+      .ref(`gestures/${gesture}`)
+      .set({
+        kk,
+        ru,
+        en
+      });
+
+    await createGestureVoices(
+      gesture,
+      kk,
+      ru,
+      en
+    );
+
+    await buildDataset();
+    await retrainModel();
+    await uploadModel();
+    await increaseVersion();
+
+    res.json({
+      success: true
+    });
+
+  } catch (e) {
+
+    res.status(500).json({
+      success: false,
+      error: e.message
+    });
+
+  }
+
+});
 app.get("/test-python", (req, res) => {
 
   const process = spawn("python", ["train.py"]);
@@ -78,7 +256,165 @@ function base64URLEncode(buffer) {
     .replace(/\//g, "_")
     .replace(/=/g, "");
 }
+async function deleteGestureVoices(
+  gesture
+) {
 
+  const bucket =
+    admin.storage().bucket();
+
+  const files = [
+    `${gesture}_kk.mp3`,
+    `${gesture}_ru.mp3`,
+    `${gesture}_en.mp3`
+  ];
+
+  for (const file of files) {
+
+    try {
+
+      await bucket.file(
+        `voices/${file}`
+      ).delete();
+
+    } catch (e) {
+
+      console.log(
+        "Voice not found:",
+        file
+      );
+
+    }
+
+  }
+
+  await admin.database()
+    .ref(`voices/${gesture}`)
+    .remove();
+}
+app.post(
+  "/createGesture",
+  async (req, res) => {
+
+    try {
+
+      const {
+        gesture,
+        kk,
+        ru,
+        en,
+        features
+      } = req.body;
+
+      await admin.database()
+        .ref(`gestures/${gesture}`)
+        .set({
+          kk,
+          ru,
+          en
+        });
+
+      await admin.database()
+        .ref("samples")
+        .push()
+        .set({
+          gesture,
+          features
+        });
+
+      await createGestureVoices(
+        gesture,
+        kk,
+        ru,
+        en
+      );
+
+      await buildDataset();
+
+      await retrainModel();
+
+      await uploadModel();
+
+      await increaseVersion();
+
+      res.json({
+        success: true
+      });
+
+    } catch (e) {
+
+      console.error(e);
+
+      res.status(500).json({
+        success: false,
+        error: e.message
+      });
+
+    }
+
+  }
+);
+app.post(
+  "/deleteGesture",
+  async (req, res) => {
+
+    try {
+
+      const {
+        gesture
+      } = req.body;
+
+      await admin.database()
+        .ref(`gestures/${gesture}`)
+        .remove();
+
+      const snapshot =
+        await admin.database()
+          .ref("samples")
+          .once("value");
+
+      snapshot.forEach(child => {
+
+        const data =
+          child.val();
+
+        if (
+          data.gesture === gesture
+        ) {
+          child.ref.remove();
+        }
+
+      });
+
+      await deleteGestureVoices(
+        gesture
+      );
+
+      await buildDataset();
+
+      await retrainModel();
+
+      await uploadModel();
+
+      await increaseVersion();
+
+      res.json({
+        success: true
+      });
+
+    } catch (e) {
+
+      console.error(e);
+
+      res.status(500).json({
+        success: false,
+        error: e.message
+      });
+
+    }
+
+  }
+);
 function sha256(buffer) {
   return crypto.createHash("sha256").update(buffer).digest();
 }
