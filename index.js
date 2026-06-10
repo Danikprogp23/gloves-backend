@@ -112,31 +112,31 @@ function generateVoice(text, voice, output) {
   });
 
 }
-async function uploadVoice(
-  fileName
-) {
+async function uploadVoice(fileName) {
 
-  const bucket =
-    admin.storage().bucket();
+  console.log("UPLOAD START:", fileName);
+
+  const bucket = admin.storage().bucket();
 
   await bucket.upload(
     fileName,
     {
-      destination:
-        `voices/${fileName}`
+      destination: `voices/${fileName}`
     }
   );
 
-  const file =
-    bucket.file(
-      `voices/${fileName}`
-    );
+  console.log("UPLOAD DONE:", fileName);
 
-  const [url] =
-    await file.getSignedUrl({
-      action: "read",
-      expires: "01-01-2100"
-    });
+  const file = bucket.file(
+    `voices/${fileName}`
+  );
+
+  const [url] = await file.getSignedUrl({
+    action: "read",
+    expires: "01-01-2100"
+  });
+
+  console.log("URL CREATED:", fileName);
 
   return url;
 }
@@ -145,7 +145,8 @@ async function createGestureVoices(
   kk,
   ru,
   en
-) {
+)
+ {
 
   const kkFile =
     `${gesture}_kk.mp3`;
@@ -198,6 +199,7 @@ async function createGestureVoices(
     });
 
 }
+
 
 app.get("/test-python", (req, res) => {
 
@@ -293,19 +295,29 @@ app.post(
         });
 
       await createGestureVoices(
-        gesture,
-        kk,
-        ru,
-        en
-      );
+  gesture,
+  kk,
+  ru,
+  en
+);
 
-      await buildDataset();
+console.log("VOICES CREATED");
 
-      await retrainModel();
+await buildDataset();
 
-      await uploadModel();
+console.log("DATASET CREATED");
 
-      await increaseVersion();
+await retrainModel();
+
+console.log("TRAIN FINISHED");
+
+await uploadModel();
+
+console.log("MODEL UPLOADED");
+
+await increaseVersion();
+
+console.log("VERSION UPDATED");
 
       res.json({
         success: true
