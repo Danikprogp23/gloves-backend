@@ -1,8 +1,8 @@
-flask
-gunicorn
 firebase-admin
 tensorflow-cpu==2.16.1
-numpy
 pandas
 scikit-learn
 edge-tts
+flask
+gunicorn
+numpy
