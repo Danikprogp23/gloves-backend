@@ -217,7 +217,10 @@ async function createGestureVoices(
 
 app.get("/test-python", (req, res) => {
 
-  const process = spawn("python", ["train.py"]);
+ const process = spawn(
+  "python3",
+  ["-u", "train.py"]
+);
 
   let output = "";
 
