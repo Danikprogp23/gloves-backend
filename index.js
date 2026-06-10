@@ -36,26 +36,45 @@ function retrainModel() {
   return new Promise((resolve, reject) => {
 
     console.log("TRAIN START");
+    console.log("STARTING PYTHON3...");
 
-    const process = spawn("python", ["train.py"]);
+    const process = spawn(
+      "python3",
+      ["train.py"]
+    );
+
+    process.on("error", (err) => {
+      console.error(
+        "SPAWN ERROR:",
+        err
+      );
+    });
 
     process.stdout.on("data", (data) => {
       console.log(data.toString());
     });
 
     process.stderr.on("data", (data) => {
-      console.error("TRAIN ERROR:", data.toString());
+      console.error(
+        "TRAIN ERROR:",
+        data.toString()
+      );
     });
 
     process.on("close", (code) => {
 
-      console.log("TRAIN EXIT CODE:", code);
+      console.log(
+        "TRAIN EXIT CODE:",
+        code
+      );
 
       if (code === 0) {
         resolve();
       } else {
         reject(
-          new Error(`Training failed: ${code}`)
+          new Error(
+            `Training failed: ${code}`
+          )
         );
       }
     });
