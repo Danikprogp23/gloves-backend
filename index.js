@@ -66,13 +66,11 @@ function retrainModel() {
 });
   });
 }
-function generateVoice(
-  text,
-  voice,
-  output
-) {
+function generateVoice(text, voice, output) {
 
   return new Promise((resolve, reject) => {
+
+    console.log("GENERATING:", output);
 
     const process = spawn(
       "python",
@@ -84,13 +82,28 @@ function generateVoice(
       ]
     );
 
+    process.stdout.on("data", data => {
+      console.log(data.toString());
+    });
+
+    process.stderr.on("data", data => {
+      console.error(data.toString());
+    });
+
     process.on("close", code => {
+
+      console.log(
+        "VOICE EXIT CODE:",
+        code
+      );
 
       if (code === 0) {
         resolve();
       } else {
         reject(
-          new Error("Voice generation failed")
+          new Error(
+            `Voice generation failed: ${code}`
+          )
         );
       }
 
