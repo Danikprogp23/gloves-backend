@@ -34,6 +34,9 @@ cloudinary.config({
 /* ================= UTILS ================= */
 function retrainModel() {
   return new Promise((resolve, reject) => {
+
+    console.log("TRAIN START");
+
     const process = spawn("python", ["train.py"]);
 
     process.stdout.on("data", (data) => {
@@ -41,29 +44,21 @@ function retrainModel() {
     });
 
     process.stderr.on("data", (data) => {
-      console.error(data.toString());
+      console.error("TRAIN ERROR:", data.toString());
     });
 
     process.on("close", (code) => {
 
-  console.log(
-    "TRAIN EXIT CODE:",
-    code
-  );
+      console.log("TRAIN EXIT CODE:", code);
 
-  if (code === 0) {
-
-    resolve();
-
-  } else {
-
-    reject(
-      new Error(
-        `Training failed: ${code}`
-      )
-    );
-  }
-});
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(
+          new Error(`Training failed: ${code}`)
+        );
+      }
+    });
   });
 }
 function generateVoice(text, voice, output) {
