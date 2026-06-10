@@ -38,10 +38,10 @@ function retrainModel() {
     console.log("TRAIN START");
     console.log("STARTING PYTHON3...");
 
-    const process = spawn(
-      "python3",
-      ["train.py"]
-    );
+     const process = spawn(
+    "python3",
+    ["-u", "train.py"]
+  );
 
     process.on("error", (err) => {
       console.error(
