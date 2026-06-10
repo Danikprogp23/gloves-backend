@@ -454,21 +454,24 @@ async function uploadModel() {
 
   const bucket = admin.storage().bucket();
 
-  await bucket.upload(
-    "smartglove.tflite",
-    {
-      destination:
-        "models/smartglove.tflite"
-    }
-  );
+  const modelPath = path.join(__dirname, "smartglove.tflite");
+  const labelsPath = path.join(__dirname, "labels.txt");
 
-  await bucket.upload(
-    "labels.txt",
-    {
-      destination:
-        "models/labels.txt"
-    }
-  );
+  console.log("MODEL PATH:", modelPath);
+  console.log("LABELS PATH:", labelsPath);
+
+  console.log("MODEL EXISTS:", fs.existsSync(modelPath));
+  console.log("LABELS EXISTS:", fs.existsSync(labelsPath));
+
+  await bucket.upload(modelPath, {
+    destination: "models/smartglove.tflite"
+  });
+
+  await bucket.upload(labelsPath, {
+    destination: "models/labels.txt"
+  });
+
+  console.log("MODEL UPLOADED");
 }
 async function increaseVersion() {
 
