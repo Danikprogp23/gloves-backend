@@ -2,8 +2,17 @@ from pathlib import Path
 import pickle
 import traceback
 
+print("BEFORE TF")
+
 import pandas as pd
+
+print("PANDAS OK")
+
 import tensorflow as tf
+
+print("TF OK")
+
+print("===== TRAIN START =====")
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
