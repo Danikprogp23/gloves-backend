@@ -185,51 +185,7 @@ async function createGestureVoices(
     });
 
 }
-app.post("/createGesture", async (req, res) => {
 
-  try {
-
-    const {
-      gesture,
-      kk,
-      ru,
-      en
-    } = req.body;
-
-    await admin.database()
-      .ref(`gestures/${gesture}`)
-      .set({
-        kk,
-        ru,
-        en
-      });
-
-    await createGestureVoices(
-      gesture,
-      kk,
-      ru,
-      en
-    );
-
-    await buildDataset();
-    await retrainModel();
-    await uploadModel();
-    await increaseVersion();
-
-    res.json({
-      success: true
-    });
-
-  } catch (e) {
-
-    res.status(500).json({
-      success: false,
-      error: e.message
-    });
-
-  }
-
-});
 app.get("/test-python", (req, res) => {
 
   const process = spawn("python", ["train.py"]);
