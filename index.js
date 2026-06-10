@@ -251,6 +251,7 @@ async function deleteGestureVoices(
 app.post(
   "/createGesture",
   async (req, res) => {
+    console.log("CREATE GESTURE CALLED");
 
     try {
 
