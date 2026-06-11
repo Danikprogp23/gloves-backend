@@ -2,23 +2,22 @@ from pathlib import Path
 import pickle
 import traceback
 
-print("BEFORE TF")
+print("BEFORE TF", flush=True)
 
 import pandas as pd
 
-print("PANDAS OK")
+print("PANDAS OK", flush=True)
 
-import tensorflow as tf
+try:
+    import tensorflow as tf
+    print("TF OK", flush=True)
 
-print("TF OK")
+except Exception as e:
+    print("TF IMPORT FAILED", flush=True)
+    print(str(e), flush=True)
+    raise
 
-print("===== TRAIN START =====")
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import StandardScaler
-
-print("===== TRAIN START =====")
+print("===== TRAIN START =====", flush=True)
 
 BASE_DIR = Path(__file__).resolve().parent
 
