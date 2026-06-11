@@ -60,7 +60,13 @@ function retrainModel() {
         data.toString()
       );
     });
+process.on("close", (code) => {
+    console.log("TRAIN EXIT CODE:", code);
+});
 
+process.on("exit", (code, signal) => {
+    console.log("TRAIN EXIT:", code, signal);
+});
     process.on("close", (code) => {
 
       console.log(

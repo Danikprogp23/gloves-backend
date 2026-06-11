@@ -4,18 +4,16 @@ import traceback
 
 print("BEFORE TF", flush=True)
 
-import pandas as pd
-
-print("PANDAS OK", flush=True)
-
 try:
     import tensorflow as tf
     print("TF OK", flush=True)
-
 except Exception as e:
     print("TF IMPORT FAILED", flush=True)
-    print(str(e), flush=True)
+    print(repr(e), flush=True)
     raise
+
+import pandas as pd
+print("PANDAS OK", flush=True)
 
 print("===== TRAIN START =====", flush=True)
 
