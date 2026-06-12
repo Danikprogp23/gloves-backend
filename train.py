@@ -99,19 +99,39 @@ try:
         .value_counts()
     )
 
-    can_stratify = (
-        class_counts.min() >= 2
+    total_samples = len(y)
+
+    can_split = (
+        total_samples >= 10
     )
 
-    X_train, X_test, y_train, y_test = (
-        train_test_split(
-            X,
-            y,
-            test_size=0.2,
-            random_state=42,
-            stratify=y if can_stratify else None
+    if can_split:
+
+        can_stratify = (
+            class_counts.min() >= 2
         )
-    )
+
+        X_train, X_test, y_train, y_test = (
+            train_test_split(
+                X,
+                y,
+                test_size=0.2,
+                random_state=42,
+                stratify=y if can_stratify else None
+            )
+        )
+
+    else:
+
+        print(
+            "SMALL DATASET - TRAIN ALL"
+        )
+
+        X_train = X
+        y_train = y
+
+        X_test = X
+        y_test = y
 
     model = tf.keras.Sequential([
         tf.keras.layers.Input(
