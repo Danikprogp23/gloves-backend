@@ -177,23 +177,23 @@ async function createGestureVoices(
   const enFile =
     `${gesture}_en.mp3`;
 
-  await generateVoice(
+await generateVoice(
     kk,
-    "kk-KZ-AigulNeural",
+    "kk-KZ-DauletNeural",
     kkFile
-  );
+);
 
-  await generateVoice(
+await generateVoice(
     ru,
-    "ru-RU-SvetlanaNeural",
+    "ru-RU-DmitryNeural",
     ruFile
-  );
+);
 
-  await generateVoice(
+await generateVoice(
     en,
-    "en-US-JennyNeural",
+    "en-US-AriaNeural",
     enFile
-  );
+);
 
   const kkUrl =
     await uploadVoice(
