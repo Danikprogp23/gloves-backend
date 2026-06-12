@@ -548,22 +548,62 @@ async function uploadModel() {
 
   const bucket = admin.storage().bucket();
 
-  const modelPath = path.join(__dirname, "smartglove.tflite");
-  const labelsPath = path.join(__dirname, "labels.txt");
+  const modelPath = path.join(
+    __dirname,
+    "smartglove.tflite"
+  );
+
+  const labelsPath = path.join(
+    __dirname,
+    "labels.txt"
+  );
 
   console.log("MODEL PATH:", modelPath);
   console.log("LABELS PATH:", labelsPath);
 
-  console.log("MODEL EXISTS:", fs.existsSync(modelPath));
-  console.log("LABELS EXISTS:", fs.existsSync(labelsPath));
+  console.log(
+    "MODEL EXISTS:",
+    fs.existsSync(modelPath)
+  );
 
-  await bucket.upload(modelPath, {
-    destination: "models/smartglove.tflite"
-  });
+  console.log(
+    "LABELS EXISTS:",
+    fs.existsSync(labelsPath)
+  );
 
-  await bucket.upload(labelsPath, {
-    destination: "models/labels.txt"
-  });
+  if (!fs.existsSync(modelPath)) {
+    throw new Error(
+      "smartglove.tflite not found"
+    );
+  }
+
+  if (!fs.existsSync(labelsPath)) {
+    throw new Error(
+      "labels.txt not found"
+    );
+  }
+
+  console.log("UPLOADING MODEL...");
+
+  await bucket.upload(
+    modelPath,
+    {
+      destination:
+        "models/smartglove.tflite"
+    }
+  );
+
+  console.log("MODEL FILE UPLOADED");
+
+  await bucket.upload(
+    labelsPath,
+    {
+      destination:
+        "models/labels.txt"
+    }
+  );
+
+  console.log("LABELS FILE UPLOADED");
 
   console.log("MODEL UPLOADED");
 }
