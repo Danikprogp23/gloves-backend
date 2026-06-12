@@ -289,6 +289,7 @@ async function deleteGestureVoices(
 app.post(
   "/createGesture",
   async (req, res) => {
+
     console.log("CREATE GESTURE CALLED");
 
     try {
@@ -316,72 +317,31 @@ app.post(
           gesture,
           features
         });
-        await createGestureVoices(
-  gesture,
-  kk,
-  ru,
-  en
-);
 
-console.log("VOICES CREATED");
+      await createGestureVoices(
+        gesture,
+        kk,
+        ru,
+        en
+      );
 
-await buildDataset();
-await retrainModel();
-await uploadModel();
-await increaseVersion();
+      console.log("VOICES CREATED");
 
-res.json({
-  success: true
-});
-app.post("/updateGesture", async (req, res) => {
+      await buildDataset();
 
-    try {
+      console.log("DATASET CREATED");
 
-        const { gesture, features } = req.body;
+      await retrainModel();
 
-        await admin.database()
-            .ref("samples")
-            .push()
-            .set({
-                gesture,
-                features
-            });
+      console.log("TRAIN FINISHED");
 
-        await buildDataset();
-        await retrainModel();
-        await uploadModel();
-        await increaseVersion();
+      await uploadModel();
 
-        res.json({
-            success: true
-        });
+      console.log("MODEL UPLOADED");
 
-    } catch (e) {
+      await increaseVersion();
 
-        res.status(500).json({
-            success: false,
-            error: e.message
-        });
-
-    }
-});
-console.log("VOICES CREATED");
-
-await buildDataset();
-
-console.log("DATASET CREATED");
-
-await retrainModel();
-
-console.log("TRAIN FINISHED");
-
-await uploadModel();
-
-console.log("MODEL UPLOADED");
-
-await increaseVersion();
-
-console.log("VERSION UPDATED");
+      console.log("VERSION UPDATED");
 
       res.json({
         success: true
@@ -400,6 +360,64 @@ console.log("VERSION UPDATED");
 
   }
 );
+
+app.post(
+  "/updateGesture",
+  async (req, res) => {
+
+    console.log("UPDATE GESTURE CALLED");
+
+    try {
+
+      const {
+        gesture,
+        features
+      } = req.body;
+
+      await admin.database()
+        .ref("samples")
+        .push()
+        .set({
+          gesture,
+          features
+        });
+
+      console.log("SAMPLE ADDED");
+
+      await buildDataset();
+
+      console.log("DATASET CREATED");
+
+      await retrainModel();
+
+      console.log("TRAIN FINISHED");
+
+      await uploadModel();
+
+      console.log("MODEL UPLOADED");
+
+      await increaseVersion();
+
+      console.log("VERSION UPDATED");
+
+      res.json({
+        success: true
+      });
+
+    } catch (e) {
+
+      console.error(e);
+
+      res.status(500).json({
+        success: false,
+        error: e.message
+      });
+
+    }
+
+  }
+);
+
 app.post(
   "/deleteGesture",
   async (req, res) => {
