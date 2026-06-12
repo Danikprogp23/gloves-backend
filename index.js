@@ -63,7 +63,7 @@ function retrainModel() {
 process.on("close", (code) => {
     console.log("TRAIN EXIT CODE:", code);
 });
-
+А
 process.on("exit", (code, signal) => {
     console.log("TRAIN EXIT:", code, signal);
 });
@@ -323,7 +323,48 @@ app.post(
   ru,
   en
 );
+app.post(
+  "/updateGesture",
+  async (req, res) => {
 
+    try {
+
+      const {
+        gesture,
+        features
+      } = req.body;
+
+      await admin.database()
+        .ref("samples")
+        .push()
+        .set({
+          gesture,
+          features
+        });
+
+      await buildDataset();
+
+      await retrainModel();
+
+      await uploadModel();
+
+      await increaseVersion();
+
+      res.json({
+        success: true
+      });
+
+    } catch (e) {
+
+      res.status(500).json({
+        success: false,
+        error: e.message
+      });
+
+    }
+
+  }
+);
 console.log("VOICES CREATED");
 
 await buildDataset();
@@ -461,9 +502,9 @@ async function buildDataset() {
 
   const header = [];
 
-  for (let i = 0; i < 40; i++) {
+for (let i = 0; i < 80; i++) {
     header.push(`f${i}`);
-  }
+}
 
   header.push("gesture");
 
