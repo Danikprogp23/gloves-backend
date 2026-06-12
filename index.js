@@ -63,7 +63,7 @@ function retrainModel() {
 process.on("close", (code) => {
     console.log("TRAIN EXIT CODE:", code);
 });
-А
+
 process.on("exit", (code, signal) => {
     console.log("TRAIN EXIT:", code, signal);
 });
@@ -316,55 +316,55 @@ app.post(
           gesture,
           features
         });
-
-      await createGestureVoices(
+        await createGestureVoices(
   gesture,
   kk,
   ru,
   en
 );
-app.post(
-  "/updateGesture",
-  async (req, res) => {
+
+console.log("VOICES CREATED");
+
+await buildDataset();
+await retrainModel();
+await uploadModel();
+await increaseVersion();
+
+res.json({
+  success: true
+});
+app.post("/updateGesture", async (req, res) => {
 
     try {
 
-      const {
-        gesture,
-        features
-      } = req.body;
+        const { gesture, features } = req.body;
 
-      await admin.database()
-        .ref("samples")
-        .push()
-        .set({
-          gesture,
-          features
+        await admin.database()
+            .ref("samples")
+            .push()
+            .set({
+                gesture,
+                features
+            });
+
+        await buildDataset();
+        await retrainModel();
+        await uploadModel();
+        await increaseVersion();
+
+        res.json({
+            success: true
         });
-
-      await buildDataset();
-
-      await retrainModel();
-
-      await uploadModel();
-
-      await increaseVersion();
-
-      res.json({
-        success: true
-      });
 
     } catch (e) {
 
-      res.status(500).json({
-        success: false,
-        error: e.message
-      });
+        res.status(500).json({
+            success: false,
+            error: e.message
+        });
 
     }
-
-  }
-);
+});
 console.log("VOICES CREATED");
 
 await buildDataset();
