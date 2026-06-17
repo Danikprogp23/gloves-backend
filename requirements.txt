@@ -6,3 +6,4 @@ edge-tts
 flask
 gunicorn
 numpy
+azure-cognitiveservices-speech

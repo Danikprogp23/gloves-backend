@@ -623,6 +623,43 @@ app.post(
     }
   }
 );
+app.post("/speak", async (req, res) => {
+
+  try {
+
+    const { text, lang } = req.body;
+
+    let voice = "en-US-AriaNeural";
+
+    if (lang === "kk")
+      voice = "kk-KZ-AigulNeural";
+
+    if (lang === "ru")
+      voice = "ru-RU-SvetlanaNeural";
+
+    const fileName =
+      `speech_${Date.now()}.mp3`;
+
+    await generateVoice(
+      text,
+      voice,
+      fileName
+    );
+
+    res.sendFile(
+      path.join(
+        __dirname,
+        fileName
+      )
+    );
+
+  } catch (e) {
+
+    res.status(500).json({
+      error: e.message
+    });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
