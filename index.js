@@ -2,6 +2,8 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const translate =
+    require("@vitalets/google-translate-api");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
@@ -588,6 +590,39 @@ app.post("/retrain", async (req, res) => {
     });
   }
 });
+app.post(
+  "/translate",
+  async (req, res) => {
+
+    try {
+
+      const text =
+        req.body.text;
+
+      const lang =
+        req.body.lang;
+
+      const result =
+        await translate.translate(
+          text,
+          { to: lang }
+        );
+
+      res.json({
+        translated:
+          result.text
+      });
+
+    } catch (e) {
+
+      console.error(e);
+
+      res.status(500).json({
+        error: e.message
+      });
+    }
+  }
+);
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
