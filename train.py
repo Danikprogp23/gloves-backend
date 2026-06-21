@@ -73,20 +73,12 @@ try:
     )
 
     num_features = X.shape[1]
-
     num_classes = len(
         label_encoder.classes_
     )
 
-    print(
-        "FEATURES:",
-        num_features
-    )
-
-    print(
-        "CLASSES:",
-        num_classes
-    )
+    print("FEATURES:", num_features)
+    print("CLASSES:", num_classes)
 
     if num_classes < 2:
         raise ValueError(
@@ -132,24 +124,42 @@ try:
         X_test = X
         y_test = y
 
-        model = tf.keras.Sequential([
-    tf.keras.layers.Input(shape=(num_features,)),
+    # ---------- МОДЕЛЬ ----------
 
-    tf.keras.layers.Dense(256, activation="relu"),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dropout(0.3),
+    model = tf.keras.Sequential([
 
-    tf.keras.layers.Dense(128, activation="relu"),
-    tf.keras.layers.BatchNormalization(),
-    tf.keras.layers.Dropout(0.3),
+        tf.keras.layers.Input(
+            shape=(num_features,)
+        ),
 
-    tf.keras.layers.Dense(64, activation="relu"),
+        tf.keras.layers.Dense(
+            256,
+            activation="relu"
+        ),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(
+            0.3
+        ),
 
-    tf.keras.layers.Dense(
-        num_classes,
-        activation="softmax"
-    )
-])
+        tf.keras.layers.Dense(
+            128,
+            activation="relu"
+        ),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.Dropout(
+            0.3
+        ),
+
+        tf.keras.layers.Dense(
+            64,
+            activation="relu"
+        ),
+
+        tf.keras.layers.Dense(
+            num_classes,
+            activation="softmax"
+        )
+    ])
 
     model.compile(
         optimizer="adam",
@@ -157,15 +167,14 @@ try:
         metrics=["accuracy"]
     )
 
-    print(
-        "MODEL FIT START"
-    )
+    print("MODEL FIT START")
 
     early_stop = tf.keras.callbacks.EarlyStopping(
-    monitor="val_accuracy",
-    patience=15,
-    restore_best_weights=True
+        monitor="val_loss",
+        patience=10,
+        restore_best_weights=True
     )
+
     model.fit(
         X_train,
         y_train,
@@ -179,9 +188,7 @@ try:
         verbose=1
     )
 
-    print(
-        "MODEL FIT END"
-    )
+    print("MODEL FIT END")
 
     loss, acc = model.evaluate(
         X_test,
@@ -197,9 +204,7 @@ try:
         KERAS_PATH
     )
 
-    print(
-        "KERAS SAVED"
-    )
+    print("KERAS SAVED")
 
     with open(
         BASE_DIR / "label_encoder.pkl",
@@ -234,9 +239,7 @@ try:
                 str(label) + "\n"
             )
 
-    print(
-        "LABELS SAVED"
-    )
+    print("LABELS SAVED")
 
     try:
 
@@ -252,8 +255,7 @@ try:
         converter.experimental_enable_resource_variables = True
 
         converter.target_spec.supported_ops = [
-            tf.lite.OpsSet.TFLITE_BUILTINS,
-            tf.lite.OpsSet.SELECT_TF_OPS
+            tf.lite.OpsSet.TFLITE_BUILTINS
         ]
 
         tflite_model = (
@@ -279,18 +281,9 @@ try:
             "TFLITE FAILED"
         )
 
-        print(
-            str(e)
-        )
+        print(str(e))
 
-        with open(
-            TFLITE_PATH,
-            "wb"
-        ) as f:
-
-            f.write(
-                b"temporary-model"
-            )
+        raise
 
     print(
         "===== TRAIN SUCCESS ====="
@@ -302,9 +295,7 @@ except Exception as e:
         "===== TRAIN FAILED ====="
     )
 
-    print(
-        str(e)
-    )
+    print(str(e))
 
     traceback.print_exc()
 
