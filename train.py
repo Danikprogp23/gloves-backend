@@ -1,6 +1,7 @@
 from pathlib import Path
 import pickle
 import traceback
+import numpy as np
 
 print("BEFORE TF", flush=True)
 
@@ -13,8 +14,11 @@ except Exception as e:
     raise
 
 import pandas as pd
+
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils.class_weight import compute_class_weight
 
 print("PANDAS OK", flush=True)
 print("===== TRAIN START =====", flush=True)
@@ -90,6 +94,8 @@ try:
         .value_counts()
     )
 
+    print(class_counts)
+
     total_samples = len(y)
 
     can_split = (
@@ -124,7 +130,20 @@ try:
         X_test = X
         y_test = y
 
-    # ---------- МОДЕЛЬ ----------
+    weights = compute_class_weight(
+        class_weight="balanced",
+        classes=np.unique(y_train),
+        y=y_train
+    )
+
+    class_weights = dict(
+        enumerate(weights)
+    )
+
+    print("CLASS WEIGHTS:")
+    print(class_weights)
+
+    # ---------------- MODEL ----------------
 
     model = tf.keras.Sequential([
 
@@ -133,26 +152,23 @@ try:
         ),
 
         tf.keras.layers.Dense(
-            256,
-            activation="relu"
-        ),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.Dropout(
-            0.3
-        ),
-
-        tf.keras.layers.Dense(
             128,
             activation="relu"
         ),
+
         tf.keras.layers.BatchNormalization(),
+
         tf.keras.layers.Dropout(
-            0.3
+            0.2
         ),
 
         tf.keras.layers.Dense(
             64,
             activation="relu"
+        ),
+
+        tf.keras.layers.Dropout(
+            0.2
         ),
 
         tf.keras.layers.Dense(
@@ -162,7 +178,9 @@ try:
     ])
 
     model.compile(
-        optimizer="adam",
+        optimizer=tf.keras.optimizers.Adam(
+            learning_rate=0.001
+        ),
         loss="sparse_categorical_crossentropy",
         metrics=["accuracy"]
     )
@@ -170,9 +188,16 @@ try:
     print("MODEL FIT START")
 
     early_stop = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=10,
+        monitor="val_accuracy",
+        patience=15,
         restore_best_weights=True
+    )
+
+    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(
+        monitor="val_loss",
+        factor=0.5,
+        patience=5,
+        verbose=1
     )
 
     model.fit(
@@ -182,9 +207,13 @@ try:
             X_test,
             y_test
         ),
-        epochs=100,
-        batch_size=16,
-        callbacks=[early_stop],
+        epochs=200,
+        batch_size=8,
+        class_weight=class_weights,
+        callbacks=[
+            early_stop,
+            reduce_lr
+        ],
         verbose=1
     )
 
@@ -252,7 +281,9 @@ try:
             .from_keras_model(model)
         )
 
-        converter.experimental_enable_resource_variables = True
+        converter.optimizations = [
+            tf.lite.Optimize.DEFAULT
+        ]
 
         converter.target_spec.supported_ops = [
             tf.lite.OpsSet.TFLITE_BUILTINS
