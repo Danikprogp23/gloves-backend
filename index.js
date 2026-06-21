@@ -274,43 +274,30 @@ app.post(
     }
   }
 );
-app.post(
-  "/updateGesture",
-  async (req, res) => {
-    console.log("UPDATE GESTURE CALLED");
+app.post("/updateGesture", async (req, res) => {
+
     try {
-      const {
-        gesture,
-        features
-      } = req.body;
-      await admin.database()
-        .ref("samples")
-        .push()
-        .set({
-          gesture,
-          features
+
+        await buildDataset();
+
+        await retrainModel();
+
+        await uploadModel();
+
+        await increaseVersion();
+
+        res.json({
+            success: true
         });
-      console.log("SAMPLE ADDED");
-      await buildDataset();
-      console.log("DATASET CREATED");
-      await retrainModel();
-      console.log("TRAIN FINISHED");
-      await uploadModel();
-      console.log("MODEL UPLOADED");
-      await increaseVersion();
-      console.log("VERSION UPDATED");
-      res.json({
-        success: true
-      });
+
     } catch (e) {
-      console.error(e);
-      res.status(500).json({
-        success: false,
-        error: e.message
-      });
+
+        res.status(500).json({
+            success: false,
+            error: e.message
+        });
     }
-  }
-);
+});
 app.post(
   "/deleteGesture",
   async (req, res) => {
@@ -623,6 +610,34 @@ app.post(
     }
   }
 );
+app.post("/addSample", async (req, res) => {
+
+    try {
+
+        const {
+            gesture,
+            features
+        } = req.body;
+
+        await admin.database()
+            .ref("samples")
+            .push()
+            .set({
+                gesture,
+                features
+            });
+
+        res.json({
+            success: true
+        });
+
+    } catch (e) {
+
+        res.status(500).json({
+            success: false
+        });
+    }
+});
 app.post("/speak", async (req, res) => {
 
   try {
