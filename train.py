@@ -132,40 +132,24 @@ try:
         X_test = X
         y_test = y
 
-    model = tf.keras.Sequential([
+        model = tf.keras.Sequential([
+    tf.keras.layers.Input(shape=(num_features,)),
 
-        tf.keras.layers.Input(
-            shape=(num_features,)
-        ),
+    tf.keras.layers.Dense(256, activation="relu"),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dropout(0.3),
 
-        tf.keras.layers.Dense(
-            128,
-            activation="relu"
-        ),
+    tf.keras.layers.Dense(128, activation="relu"),
+    tf.keras.layers.BatchNormalization(),
+    tf.keras.layers.Dropout(0.3),
 
-        tf.keras.layers.Dropout(
-            0.2
-        ),
+    tf.keras.layers.Dense(64, activation="relu"),
 
-        tf.keras.layers.Dense(
-            64,
-            activation="relu"
-        ),
-
-        tf.keras.layers.Dropout(
-            0.2
-        ),
-
-        tf.keras.layers.Dense(
-            32,
-            activation="relu"
-        ),
-
-        tf.keras.layers.Dense(
-            num_classes,
-            activation="softmax"
-        )
-    ])
+    tf.keras.layers.Dense(
+        num_classes,
+        activation="softmax"
+    )
+])
 
     model.compile(
         optimizer="adam",
@@ -178,11 +162,10 @@ try:
     )
 
     early_stop = tf.keras.callbacks.EarlyStopping(
-        monitor="val_loss",
-        patience=4,
-        restore_best_weights=True
+    monitor="val_accuracy",
+    patience=15,
+    restore_best_weights=True
     )
-
     model.fit(
         X_train,
         y_train,
@@ -190,7 +173,7 @@ try:
             X_test,
             y_test
         ),
-        epochs=20,
+        epochs=100,
         batch_size=16,
         callbacks=[early_stop],
         verbose=1
